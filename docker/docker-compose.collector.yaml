@@ -1,0 +1,54 @@
+version: "3.8"
+
+# Extends docker-compose.yaml — adds an OTel Collector for collector-mediated mode.
+# Usage: docker compose -f docker-compose.yaml -f docker-compose.collector.yaml up
+
+services:
+  parseable:
+    image: parseable/parseable:latest
+    command:
+      - parseable
+      - local-store
+    environment:
+      - P_USERNAME=admin
+      - P_PASSWORD=admin
+      - P_ADDR=0.0.0.0:8000
+    ports:
+      - "8000:8000"
+    volumes:
+      - parseable-data:/parseable/data
+      - parseable-staging:/parseable/staging
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=sqlite
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development-sql.yaml
+      - TEMPORAL_ADDRESS=temporal:7233
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    ports:
+      - "8080:8080"
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    depends_on:
+      - temporal
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+    depends_on:
+      - parseable
+
+volumes:
+  parseable-data:
+  parseable-staging:

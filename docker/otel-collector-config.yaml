@@ -1,0 +1,52 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+
+processors:
+  batch:
+    timeout: 5s
+    send_batch_size: 256
+
+exporters:
+  otlphttp/traces:
+    endpoint: http://parseable:8000
+    traces_endpoint: http://parseable:8000/v1/traces
+    headers:
+      Authorization: "Basic YWRtaW46YWRtaW4="
+      X-P-Stream: "temporal-traces"
+      X-P-Log-Source: "otel-collector"
+
+  otlphttp/logs:
+    endpoint: http://parseable:8000
+    logs_endpoint: http://parseable:8000/v1/logs
+    headers:
+      Authorization: "Basic YWRtaW46YWRtaW4="
+      X-P-Stream: "temporal-logs"
+      X-P-Log-Source: "otel-collector"
+
+  otlphttp/metrics:
+    endpoint: http://parseable:8000
+    metrics_endpoint: http://parseable:8000/v1/metrics
+    headers:
+      Authorization: "Basic YWRtaW46YWRtaW4="
+      X-P-Stream: "temporal-metrics"
+      X-P-Log-Source: "otel-collector"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/traces]
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/logs]
+    metrics:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlphttp/metrics]
