@@ -12,6 +12,7 @@ from temporalio.runtime import OpenTelemetryConfig, Runtime, TelemetryConfig
 
 from .config import ParseableConfig
 from .logging_handler import create_otel_logging_handler
+from .metrics_interceptor import MetricsInterceptor, set_meter
 from .otel_setup import (
     setup_logger_provider,
     setup_meter_provider,
@@ -65,18 +66,24 @@ class ParseablePlugin(SimplePlugin):
             logging.getLogger().addHandler(handler)
             logger.info("Logs enabled → %s", self.config.logs_stream)
 
-        # --- Metrics (OTel SDK-level; Temporal SDK metrics handled via Runtime) ---
+        # --- Metrics ---
+        metrics_interceptor = None
         if self.config.enable_metrics:
             meter_provider = setup_meter_provider(self.config)
             self._providers.append(meter_provider)
+            meter = meter_provider.get_meter("temporal-parseable")
+            set_meter(meter)
+            metrics_interceptor = MetricsInterceptor()
             logger.info("Metrics enabled → %s", self.config.metrics_stream)
 
         # Build interceptor lists for SimplePlugin
         client_interceptors = [tracing_interceptor] if tracing_interceptor else []
+        worker_interceptors = [metrics_interceptor] if metrics_interceptor else []
 
         super().__init__(
             name="temporal-parseable",
             client_interceptors=client_interceptors or None,
+            worker_interceptors=worker_interceptors or None,
             run_context=self._run_context,
         )
 
